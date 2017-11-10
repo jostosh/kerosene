@@ -19,10 +19,9 @@ def paths_from_metadata(basename, version, url_dir):
 # this assumes that the load should happen from kerosene path and
 # will include a download of the file if not already present
 # returns fuel path to local file
-def ensure_dataset_ready(basename, version, url_dir):
+def ensure_dataset_ready(basename, version, url_dir, kerosenedir):
     # setup names
     filename, url = paths_from_metadata(basename, version, url_dir)
-    kerosenedir = os.path.expanduser(os.path.join('~', '.kerosene', 'datasets'))
     filetarget = os.path.join(kerosenedir, filename)
     # if file is not present, download it (also created directories if needed)
     if not os.path.isfile(filetarget):
@@ -40,7 +39,7 @@ def fuel_data_to_list(fuel_data, shuffle):
     else:
         scheme = SequentialScheme(fuel_data.num_examples, fuel_data.num_examples)
     fuel_data_stream = DataStream.default_stream(fuel_data, iteration_scheme=scheme)
-    return next(fuel_data_stream.get_epoch_iterator())
+    return fuel_data_stream.get_epoch_iterator().next()
 
 def fuel_datasets_unpacked(fuel_datasets, shuffle=False):
     return map(lambda x: fuel_data_to_list(x, shuffle=shuffle), fuel_datasets)
@@ -66,13 +65,14 @@ class Dataset(object):
     def apply_transforms(self, datasets):
         return datasets
 
-    def load_data(self, sets=None, sources=None, fuel_dir=False):
+    def load_data(self, sets=None, sources=None, fuel_dir=False,
+                  datadir=os.path.join(os.path.expanduser('~'), '.kerosene/datasets')):
         sets = self.default_sets if sets is None else sets
         sources = self.default_sources if sources is None else sources
         if(fuel_dir):
             restore_fuel_data_path()
         else:
-            local_file = ensure_dataset_ready(self.basename, self.version, self.url_dir)
+            local_file = ensure_dataset_ready(self.basename, self.version, self.url_dir, datadir)
             if(self.class_for_filename_patch):
                 self.class_for_filename_patch.filename = property(lambda self: local_file)
         datasets = self.build_data(sets, sources)
@@ -82,4 +82,4 @@ class Dataset(object):
 
 # again, this is an template for subclasses
 def load_data(sets=None, sources=None, fuel_dir=False):
-    return Dataset().load_data(sets, sources, fuel_dir);
+    return Dataset().load_data(sets, sources, fuel_dir)
